@@ -1,0 +1,34 @@
+node{
+    def mavenHome = tool name: 'maven 3.9.1'
+    stage('1. Clone_Code'){
+      //sh "git clone https://github.com/Ifedinabba/maven-web-app.git"
+      //bat "git clone https://github.com/Ifedinabba/maven-web-app.git"
+      git credentialsId: 'maven-web-app', url: 'https://github.com/Ifedinabba/maven-web-app.git'
+    }
+    stage('2. Test&Build'){
+      sh "${mavenHome}/bin/mvn package"
+    }
+    stage('3. CodeQualityAnalysis'){
+      sh "${mavenHome}/bin/mvn sonar:sonar"
+    }
+    stage('4. UploadArtifacts'){
+      sh "${mavenHome}/bin/mvn deploy"
+    }
+    stage('5. Deploy2UAT'){
+      deploy adapters: [tomcat9(credentialsId: 'tomcat', path: '', url: 'http://18.132.40.104:8090/')], contextPath: '/Pipeline_Test_Job', onFailure: false, war: 'target/*.war'
+    }
+    stage('6. ManualApproval'){
+      sh "echo 'ready for review' "
+    timeout(time:5, unit:'HOURS') {
+    input message: 'Application is ready for deployment, Please review and approve'
+    }
+    stage('7. Deploy2Prod'){
+    	deploy adapters: [tomcat9(credentialsId: 'tomcat', path: '', url: 'http://18.132.40.104:8090')], contextPath: '/Pipeline_Test_Job2', onFailure: false, war: 'target/*.war'
+    }
+    stage('8. emailNotification'){
+    	emailext body: '''Great job team
+
+Sizamtek''', recipientProviders: [buildUser(), developers(), contributor()], subject: 'Build Successful', to: 'ifediohiaeri@gmail.com, fedyman2016@gmail.com'
+    }
+  }
+}
